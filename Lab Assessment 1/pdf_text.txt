@@ -1,0 +1,119 @@
+--- Page 1 ---
+Features Tracking for Web-based AR Application 
+1 
+Real-Time Computer Graphics 
+Section 01/02 
+Semester 1, 2026
+LAB ASSESSMENT 1 - GROUP OF TWO
+Features Tracking for Web-based Augmented Reality 
+Date Issued: 17 Mac 2026 
+ajune@utm.my
+OVERVIEW 
+This lab activity is a part of the course assessment series that aims to determine a standard feature-based
+tracking technique that enables the creation of augmented reality (AR) web-based applications. It uses 
+computer vision technology to recognize and track the images in real-time and overlays the 3D object 
+(as simple as 3D cube). This project brings AR feature-based marker tracking technique to the Web. 
+Feature-based tracking is commonly used to build AR application while Web is the most ubiquitous 
+computing platform. There are already billions of devices connected to the web that have access to a 
+plethora of visual information. OpenCV is a library for general computer vision application development, 
+with hundreds of algorithms and efficient implementation. With HTML5 and new client-side technologies 
+today browsers are capable of handling more complex tasks. You are required to develop a web 
+application to produce AR marker using a feature-based tracking technique. A captured image is 
+converted into a grayscale image, and the grayscale image has created the features.  
+[Image] [Grayscale] [Features] 
+Then your application is able to position and orient virtual objects , such as 3D cube  on that generated 
+features. Once your web-camera captures the image, the features are recognized and 3D object will appear on 
+the top of it.  
+INSTRUCTIONS TO STUDENTS: 
+1. This project MUST be done in a group (a group of two) and completed before the deadline.
+2. You need to demonstrate a RGB image is converting to features using your web browser application.
+The testing involves at least 3 images, presenting the results of 3 images is different 3D object in your
+video output.
+3. You need to run ONE (1) AR scene using your generated marker. You need a 3D object to overlay on the
+top of your marker output.
+4. The following requirements are the bare minimum for the assignment:
+
+--- Page 2 ---
+Features Tracking for Web-based AR Application 
+2 
+ Hardware
+o Printed marker – A4 size, a coloured image. ( do not use mobile screen or window
+screen as your marker, do not use black and white as a marker)
+o Web-camera – Display device (your web application should work on desktop-based
+ Tracking method – Natural feature tracking
+[Image] [Features] 
+ Events/Actions
+o Upload Image button – to upload RGB image
+o Generate button – to execute the feature extraction method (converting image to
+grayscale and generate features)
+o Save button – to save the current image (in acceptable format)
+5. You are required to present your project DEMO (video format) and prepare ONE (1) page description
+about your AR web-based application and your feature-based marker generator.
+6. To guide you more :
+a. Computer vision using Javascript : TrackingJS  (https://trackingjs.com/)
+b. JSFeat (http://inspirit.github.io/jsfeat/)
+c. OpencvJS (https://github.com/ucisysarch/opencvjs)
+d. AR.js - based on ARToolkit marker : https://github.com/jeromeetienne/AR.js
+e. ARToolkit.js: https://github.com/kalwalt/jsartoolkit5
+f. Feature extraction method -  SURF, ORB, SIFT, BRIEF.
+g. Some various experiments with Ar.js and Three.js : https://kalwalt.github.io/kalwalt-interactivity-
+AR/index.html
+SUBMISSION PROCEDURE: 
+The DEADLINE given as in EDREDO submission link, group leader needs to perform submission .ZIP 
+contains AR website, video and one page report to email ajunewanis@ymail.com
+In any reasons the group failed to deliver the DEMO and any of each member in a group failed 
+to demonstrate verbally and/or technically on their deliverable, the mark WILL BE ENDED WITH A 
+ZERO MARK FOR BOTH PARTY.   
+
+--- Page 3 ---
+Features Tracking for Web-based AR Application 
+3 
+Assessment Criteria Marks 
+You need to demonstrate a RGB image is converting to features using your web 
+application 
+Not creating your tracking method – if the students use a ready-made library  
+[Deduction 50 Marks] 
+10 
+The testing involves at least 3 images, presenting the results of 3 images in your video 
+output.  
+Fail to adhere, present only one (1) image [Deduction 3 Marks]
+6 
+You need to run ONE (1) AR scene using your generated marker. 
+Fail to adhere [Deduction 3 Marks]
+Not using your own generated marker [Deduction 3 Marks]
+3 
+You need a 3D object to overlay on the top of your marker output. 
+Overlay a video, 2D elements [Deduction 3 Marks] 
+3 
+Printed marker – A4 size, a coloured image. 
+Not A4 size [Deduction 3 Marks] 
+Not a coloured image [Deduction 3 Marks] 
+3 
+Do not use mobile screen or window screen as your marker 
+Fail to adhere [Deduction 5 Marks] 
+1 
+Do not use black and white as a marker 
+Fail to adhere [Deduction 5 Marks] 
+1 
+Use web-camera and not deliver a desktop-based AR application 
+Fail to adhere [Deduction 5 Marks] 
+1 
+UI – Web application (Actions and events) 
+Run without UI [Deduction 10 Marks] 
+3 
+Video formatting – DEMO 
+Inappropriate demo-reel, corrupted or void, missing link [Deduction 2 Marks] 
+2 
+ONE (1) page report –  
+Report written in more than 1 page [Deduction 2 Marks] 
+Report has been sent without name and matrix ID [Deduction 5 Marks] 
+Deliver without a report [Deduction 15 Marks] 
+5 
+Upon completion this assignment the students will attain a team-working marks 10 
+Submission ethic bonus:
+Submission more than ONE (1) time to ymail [Deduction 2 Marks]
+Missing the deadline [Deduction 50 Marks] 
+2 
+Total 50 
+* Deduction marks over the total mark. If the total mark produces a negative value , his assignment is
+automatically ended with ZERO marks.

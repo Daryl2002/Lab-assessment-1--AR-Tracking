@@ -1,0 +1,84 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #1a1a1a;
+    color: white;
+}
+
+#ui-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000; /* Ensure UI stays above the camera feed */
+    padding: 20px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.7);
+    border-bottom: 2px solid #555;
+    text-align: center;
+}
+
+h1 {
+    margin-top: 0;
+    font-size: 24px;
+    color: #4CAF50;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.custom-btn {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+.custom-btn:hover:not(.disabled) {
+    background-color: #45a049;
+    transform: scale(1.05);
+}
+
+.custom-btn:active:not(.disabled) {
+    transform: scale(0.95);
+}
+
+.custom-btn.disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.feedback {
+    margin-bottom: 15px;
+}
+
+#statusText {
+    font-weight: bold;
+    color: #ffd700;
+}
+
+.canvas-container {
+    max-width: 100%;
+    margin-top: 10px;
+}
+
+#imageCanvas {
+    max-width: 100%;
+    max-height: 400px;
+    border: 2px solid #4CAF50;
+    border-radius: 5px;
+    display: none; /* Hidden until image is uploaded */
+}
