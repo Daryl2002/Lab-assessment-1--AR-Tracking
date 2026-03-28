@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Tracking Web App</title>
     <link rel="stylesheet" href="app.css">
-    
+
     <!-- Include OpenCV.js and Three.js -->
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
+
 <body style="margin : 0px; overflow: hidden; background-color: #000;">
 
     <aside>
         <div class="sidebar-header">
             <h1>AR Features</h1>
-            <p>Tracking Engine v1.0</p>
+            <p>Lab Assessment 1 - AR Tracking</p>
         </div>
 
         <div class="controls">
@@ -24,7 +26,7 @@
                 <label for="imageUpload" class="custom-btn btn-upload">Upload RGB Image</label>
                 <input type="file" id="imageUpload" accept="image/*" style="display: none;">
             </div>
-            
+
             <div class="control-group">
                 <span class="label-title">Processing</span>
                 <button id="generateBtn" class="custom-btn btn-generate">Generate Features</button>
@@ -50,7 +52,7 @@
                     <canvas id="imageCanvas"></canvas>
                 </div>
             </div>
-            
+
             <div class="grid-item">
                 <span class="grid-label">Live AR View</span>
                 <div class="viewer-container">
@@ -61,7 +63,7 @@
                 </div>
             </div>
         </div>
-        <div class="watermark">UTM • Real-Time Computer Graphics</div>
+        <div class="watermark">Group 4 from RTCG</div>
     </main>
 
     <!-- Hidden Video element for webcam capture -->
@@ -69,4 +71,5 @@
 
     <script src="main.js"></script>
 </body>
+
 </html>

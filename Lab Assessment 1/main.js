@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('generateBtn');
     const saveBtn = document.getElementById('saveBtn');
     const startARBtn = document.getElementById('startARBtn');
-    
+
     canvas = document.getElementById('imageCanvas');
     ctx = canvas.getContext('2d');
     video = document.getElementById('webcamVideo');
@@ -33,9 +33,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // Create a stylish cube - smaller scale
         const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const material = new THREE.MeshPhongMaterial({ 
-            color: 0x4f46e5, 
-            transparent: true, 
+        const material = new THREE.MeshPhongMaterial({
+            color: 0x4f46e5,
+            transparent: true,
             opacity: 0.8,
             specular: 0x111111,
             shininess: 100
@@ -68,7 +68,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (e.target.files.length > 0) {
             const file = e.target.files[0];
             const reader = new FileReader();
-            
+
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
@@ -90,7 +90,7 @@ window.addEventListener('DOMContentLoaded', () => {
     generateBtn.addEventListener('click', () => {
         if (!refImage || !cv) return;
         statusText.innerText = "Status: Processing Features...";
-        
+
         try {
             let imgMat = cv.imread(canvas);
             let imgGray = new cv.Mat();
@@ -99,7 +99,7 @@ window.addEventListener('DOMContentLoaded', () => {
             refKeypoints = new cv.KeyPointVector();
             refDescriptors = new cv.Mat();
             orb.detectAndCompute(imgGray, new cv.Mat(), refKeypoints, refDescriptors);
-            
+
             // Draw features
             let outImg = new cv.Mat();
             cv.cvtColor(imgGray, outImg, cv.COLOR_GRAY2RGBA);
@@ -109,13 +109,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 cv.circle(outImg, new cv.Point(p.x, p.y), 3, color, -1);
             }
             cv.imshow(canvas, outImg);
-            
+
             imgMat.delete(); imgGray.delete(); outImg.delete();
 
             statusText.innerText = "Status: Features Ready! You can start AR.";
             saveBtn.disabled = false;
             startARBtn.disabled = false;
-            
+
         } catch (err) {
             console.error(err);
             statusText.innerText = "Status: Feature Error.";
@@ -133,12 +133,12 @@ window.addEventListener('DOMContentLoaded', () => {
     // 4. Start AR Camera
     startARBtn.addEventListener('click', () => {
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-            .then(function(stream) {
+            .then(function (stream) {
                 video.srcObject = stream;
                 video.play();
                 arView.classList.add('active'); // Use class for appearance
                 statusText.innerText = "Status: Tracking Active. Find the marker.";
-                
+
                 video.addEventListener('canplay', () => {
                     if (!streaming) {
                         outputCanvas.width = video.videoWidth;
@@ -155,33 +155,33 @@ window.addEventListener('DOMContentLoaded', () => {
             .catch(err => alert("Camera error: " + err));
     });
 
-function processVideo() {
+    function processVideo() {
         if (!streaming) return;
-        
+
         let matsToDelete = [];
         cube.visible = false; // Reset each frame to avoid ghosting
-        
+
         try {
             cap.read(src);
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-            
+
             let frameKeypoints = new cv.KeyPointVector();
             let frameDescriptors = new cv.Mat();
             matsToDelete.push(frameKeypoints, frameDescriptors);
-            
+
             orb.detectAndCompute(gray, new cv.Mat(), frameKeypoints, frameDescriptors);
-            
+
             if (frameDescriptors.rows > 0 && refDescriptors.rows > 0) {
                 let matches = new cv.DMatchVector();
                 matsToDelete.push(matches);
                 bf.match(refDescriptors, frameDescriptors, matches);
-                
+
                 let goodMatches = [];
                 for (let i = 0; i < matches.size(); i++) {
                     let m = matches.get(i);
                     if (m.distance < 65) goodMatches.push(m);
                 }
-                
+
                 if (goodMatches.length >= 20) {
                     let refPts = [];
                     let framePts = [];
@@ -191,24 +191,32 @@ function processVideo() {
                         framePts.push(frameKeypoints.get(goodMatches[i].trainIdx).pt.x);
                         framePts.push(frameKeypoints.get(goodMatches[i].trainIdx).pt.y);
                     }
-                    
+
                     let refMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, refPts);
                     let frameMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, framePts);
-                    matsToDelete.push(refMat, frameMat);
+                    let mask = new cv.Mat();
+                    matsToDelete.push(refMat, frameMat, mask);
                     
-                    let H = cv.findHomography(refMat, frameMat, cv.RANSAC, 5.0);
+                    let H = cv.findHomography(refMat, frameMat, cv.RANSAC, 5.0, mask);
                     
+                    let inliers = 0;
                     if (!H.empty()) {
+                        for (let i = 0; i < mask.rows; i++) {
+                            if (mask.data[i]) inliers++;
+                        }
+                    }
+                    
+                    if (!H.empty() && inliers >= 15) {
                         matsToDelete.push(H);
-                        
+
                         let w = refImage.width;
                         let h = refImage.height;
-                        let objCorners = cv.matFromArray(4, 1, cv.CV_32FC2, [0,0, w,0, w,h, 0,h]);
+                        let objCorners = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
                         let sceneCorners = new cv.Mat();
                         matsToDelete.push(objCorners, sceneCorners);
-                        
+
                         cv.perspectiveTransform(objCorners, sceneCorners, H);
-                        
+
                         // Centroid calculation
                         let cx = 0, cy = 0;
                         for(let i=0; i<8; i+=2) {
@@ -217,23 +225,49 @@ function processVideo() {
                         }
                         cx /= 4; cy /= 4;
 
-                        cube.visible = true;
-                        cube.position.x = (cx / video.videoWidth) * 2 - 1;
-                        cube.position.y = -((cy / video.videoHeight) * 2 - 1);
-                        cube.position.z = -2;
-                        
-                        cube.rotation.y += 0.05;
-                        cube.rotation.x += 0.02;
+                        // Polygon validation: check if the transformed corners form a convex quadrilateral
+                        // with a reasonable area (to prevent extremely distorted/random matches).
+                        let px0 = sceneCorners.data32F[0], py0 = sceneCorners.data32F[1];
+                        let px1 = sceneCorners.data32F[2], py1 = sceneCorners.data32F[3];
+                        let px2 = sceneCorners.data32F[4], py2 = sceneCorners.data32F[5];
+                        let px3 = sceneCorners.data32F[6], py3 = sceneCorners.data32F[7];
+
+                        let crossProduct = (x1, y1, x2, y2) => x1 * y2 - y1 * x2;
+
+                        let cross0 = crossProduct(px1 - px0, py1 - py0, px2 - px1, py2 - py1);
+                        let cross1 = crossProduct(px2 - px1, py2 - py1, px3 - px2, py3 - py2);
+                        let cross2 = crossProduct(px3 - px2, py3 - py2, px0 - px3, py0 - py3);
+                        let cross3 = crossProduct(px0 - px3, py0 - py3, px1 - px0, py1 - py0);
+
+                        let isConvex = (cross0 > 0 && cross1 > 0 && cross2 > 0 && cross3 > 0) || 
+                                       (cross0 < 0 && cross1 < 0 && cross2 < 0 && cross3 < 0);
+
+                        let area = 0.5 * Math.abs(crossProduct(px2 - px0, py2 - py0, px3 - px1, py3 - py1));
+                        let minArea = (video.videoWidth * video.videoHeight) * 0.005; // At least 0.5% of the screen
+
+                        // Check if centroid is somewhat within bounds AND polygon is safe
+                        if (isConvex && area > minArea && cx >= -video.videoWidth && cx <= video.videoWidth * 2 && cy >= -video.videoHeight && cy <= video.videoHeight * 2) {
+                            let vFov = camera.fov * Math.PI / 180;
+                            let planeHeight = 2 * Math.tan(vFov / 2) * 2; // Math.abs(z) is 2
+                            let planeWidth = planeHeight * camera.aspect;
+
+                            cube.visible = true;
+                            cube.position.x = ((cx / video.videoWidth) * 2 - 1) * (planeWidth / 2);
+                            cube.position.y = -((cy / video.videoHeight) * 2 - 1) * (planeHeight / 2);
+                            cube.position.z = -2;
+                            
+                            cube.rotation.set(0, 0, 0); // Stop spinning
+                        }
                     }
                 }
             }
-            
+
             // Render to clear/update
             renderer.clear();
             renderer.render(scene, camera);
-            
+
             cv.imshow('outputCanvas', src);
-            
+
         } catch (err) {
             console.error(err);
         } finally {
