@@ -1,8 +1,12 @@
 let refImage, refKeypoints, refDescriptors;
 let orb, bf;
-let video, canvas, ctx, cap, src, gray;
-let isTracking = false;
+let canvas, ctx;
+let video, cap, src, gray;
 let streaming = false;
+
+// Three.js variables
+let scene, camera, renderer, cube;
+const arOverlay = document.getElementById('ar-overlay');
 
 window.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('statusText');
@@ -10,19 +14,52 @@ window.addEventListener('DOMContentLoaded', () => {
     const generateBtn = document.getElementById('generateBtn');
     const saveBtn = document.getElementById('saveBtn');
     const startARBtn = document.getElementById('startARBtn');
+
     canvas = document.getElementById('imageCanvas');
     ctx = canvas.getContext('2d');
     video = document.getElementById('webcamVideo');
-    const arContainer = document.getElementById('ar-container');
+    const arView = document.getElementById('ar-view');
     const outputCanvas = document.getElementById('outputCanvas');
+
+    // Initialize Three.js
+    function initThreeJS() {
+        scene = new THREE.Scene();
+        const container = arOverlay.parentElement;
+        camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        arOverlay.innerHTML = '';
+        arOverlay.appendChild(renderer.domElement);
+
+        // Create a stylish cube - smaller scale
+        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const material = new THREE.MeshPhongMaterial({
+            color: 0x4f46e5,
+            transparent: true,
+            opacity: 0.8,
+            specular: 0x111111,
+            shininess: 100
+        });
+        cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 10, 10);
+        scene.add(directionalLight);
+
+        cube.visible = false;
+    }
 
     // Wait for OpenCV.js
     const checkOpenCV = setInterval(() => {
         if (typeof cv !== 'undefined' && cv.Mat) {
             clearInterval(checkOpenCV);
-            statusText.innerText = "Status: OpenCV.js is ready. Please upload an image.";
-            orb = new cv.ORB(500); // 500 features max
-            bf = new cv.BFMatcher(cv.NORM_HAMMING, true); // Crosscheck true
+            statusText.innerText = "Status: Engine Ready. Upload an image.";
+            orb = new cv.ORB(500);
+            bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
         }
     }, 500);
 
@@ -31,7 +68,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (e.target.files.length > 0) {
             const file = e.target.files[0];
             const reader = new FileReader();
-            
+
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = () => {
@@ -39,8 +76,9 @@ window.addEventListener('DOMContentLoaded', () => {
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0, img.width, img.height);
                     canvas.style.display = 'block';
+                    // Don't hide ar-view, just keep it ready
                     refImage = img;
-                    statusText.innerText = "Status: Image uploaded. Ready to generate features.";
+                    statusText.innerText = "Status: Image Loaded. Click Generate Features.";
                 };
                 img.src = event.target.result;
             };
@@ -51,8 +89,8 @@ window.addEventListener('DOMContentLoaded', () => {
     // 2. Generate Features
     generateBtn.addEventListener('click', () => {
         if (!refImage || !cv) return;
-        statusText.innerText = "Status: Extracting features...";
-        
+        statusText.innerText = "Status: Processing Features...";
+
         try {
             let imgMat = cv.imread(canvas);
             let imgGray = new cv.Mat();
@@ -60,52 +98,47 @@ window.addEventListener('DOMContentLoaded', () => {
 
             refKeypoints = new cv.KeyPointVector();
             refDescriptors = new cv.Mat();
-            
-            // Extract features
             orb.detectAndCompute(imgGray, new cv.Mat(), refKeypoints, refDescriptors);
-            
-            // Draw keypoints manually
+
+            // Draw features
             let outImg = new cv.Mat();
             cv.cvtColor(imgGray, outImg, cv.COLOR_GRAY2RGBA);
-            let color = new cv.Scalar(0, 255, 0, 255);
+            let color = new cv.Scalar(16, 185, 129, 255); // Emerald Green
             for (let i = 0; i < refKeypoints.size(); i++) {
                 let p = refKeypoints.get(i).pt;
                 cv.circle(outImg, new cv.Point(p.x, p.y), 3, color, -1);
             }
             cv.imshow(canvas, outImg);
-            
+
             imgMat.delete(); imgGray.delete(); outImg.delete();
 
-            statusText.innerText = "Status: Features generated! You can save the marker and start the AR camera.";
-            saveBtn.classList.remove('disabled'); saveBtn.disabled = false;
-            startARBtn.classList.remove('disabled'); startARBtn.disabled = false;
-            
+            statusText.innerText = "Status: Features Ready! You can start AR.";
+            saveBtn.disabled = false;
+            startARBtn.disabled = false;
+
         } catch (err) {
-            console.error("Feature extraction error:", err);
-            statusText.innerText = "Status: Error extracting features.";
+            console.error(err);
+            statusText.innerText = "Status: Feature Error.";
         }
     });
 
     // 3. Save Image
     saveBtn.addEventListener('click', () => {
-        if (saveBtn.disabled) return;
         const link = document.createElement('a');
-        link.download = 'ar-marker.png';
+        link.download = 'marker-features.png';
         link.href = canvas.toDataURL('image/png');
         link.click();
     });
 
     // 4. Start AR Camera
     startARBtn.addEventListener('click', () => {
-        if (startARBtn.disabled) return;
-        
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-            .then(function(stream) {
+            .then(function (stream) {
                 video.srcObject = stream;
                 video.play();
-                arContainer.style.display = 'block';
-                statusText.innerText = "Status: Tracking started. Point camera at marker.";
-                
+                arView.classList.add('active'); // Use class for appearance
+                statusText.innerText = "Status: Tracking Active. Find the marker.";
+
                 video.addEventListener('canplay', () => {
                     if (!streaming) {
                         outputCanvas.width = video.videoWidth;
@@ -113,53 +146,43 @@ window.addEventListener('DOMContentLoaded', () => {
                         src = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC4);
                         gray = new cv.Mat(video.videoHeight, video.videoWidth, cv.CV_8UC1);
                         cap = new cv.VideoCapture(video);
+                        initThreeJS();
                         streaming = true;
                         requestAnimationFrame(processVideo);
                     }
                 });
             })
-            .catch(function(err) {
-                alert("Camera error: " + err); 
-            });
+            .catch(err => alert("Camera error: " + err));
     });
 
     function processVideo() {
         if (!streaming) return;
-        
-        // Setup memory management arrays to prevent memory leak crashes
+
         let matsToDelete = [];
-        let matchesFound = 0;
-        
+        cube.visible = false; // Reset each frame to avoid ghosting
+
         try {
             cap.read(src);
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-            
+
             let frameKeypoints = new cv.KeyPointVector();
             let frameDescriptors = new cv.Mat();
             matsToDelete.push(frameKeypoints, frameDescriptors);
-            
-            // Extract features from current video frame
+
             orb.detectAndCompute(gray, new cv.Mat(), frameKeypoints, frameDescriptors);
-            
+
             if (frameDescriptors.rows > 0 && refDescriptors.rows > 0) {
                 let matches = new cv.DMatchVector();
                 matsToDelete.push(matches);
                 bf.match(refDescriptors, frameDescriptors, matches);
-                
-                // Filter good matches - ORB Hamming distances usually < 50 are excellent
+
                 let goodMatches = [];
                 for (let i = 0; i < matches.size(); i++) {
                     let m = matches.get(i);
-                    // 65 is a standard threshold for ORB matching to avoid false positives
-                    if (m.distance < 65) {
-                        goodMatches.push(m);
-                    }
+                    if (m.distance < 65) goodMatches.push(m);
                 }
-                
-                matchesFound = goodMatches.length;
-                
-                // Need at least 4 points to find homography, 10 is safer
-                if (matchesFound >= 10) {
+
+                if (goodMatches.length >= 20) {
                     let refPts = [];
                     let framePts = [];
                     for (let i = 0; i < goodMatches.length; i++) {
@@ -168,72 +191,86 @@ window.addEventListener('DOMContentLoaded', () => {
                         framePts.push(frameKeypoints.get(goodMatches[i].trainIdx).pt.x);
                         framePts.push(frameKeypoints.get(goodMatches[i].trainIdx).pt.y);
                     }
-                    
+
                     let refMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, refPts);
                     let frameMat = cv.matFromArray(goodMatches.length, 1, cv.CV_32FC2, framePts);
-                    matsToDelete.push(refMat, frameMat);
+                    let mask = new cv.Mat();
+                    matsToDelete.push(refMat, frameMat, mask);
                     
-                    let H = cv.findHomography(refMat, frameMat, cv.RANSAC, 5.0);
+                    let H = cv.findHomography(refMat, frameMat, cv.RANSAC, 5.0, mask);
                     
+                    let inliers = 0;
                     if (!H.empty()) {
+                        for (let i = 0; i < mask.rows; i++) {
+                            if (mask.data[i]) inliers++;
+                        }
+                    }
+                    
+                    if (!H.empty() && inliers >= 15) {
                         matsToDelete.push(H);
-                        
-                        // Project a 3D looking Cube using Homography perspective transform
+
                         let w = refImage.width;
                         let h = refImage.height;
-                        
-                        let objCorners = cv.matFromArray(4, 1, cv.CV_32FC2, [0,0, w,0, w,h, 0,h]);
+                        let objCorners = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
                         let sceneCorners = new cv.Mat();
                         matsToDelete.push(objCorners, sceneCorners);
-                        
+
                         cv.perspectiveTransform(objCorners, sceneCorners, H);
-                        
-                        // Draw bottom face (base of cube)
-                        let colorBase = new cv.Scalar(255, 0, 0, 255); // Red base
-                        let p1 = new cv.Point(sceneCorners.data32F[0], sceneCorners.data32F[1]);
-                        let p2 = new cv.Point(sceneCorners.data32F[2], sceneCorners.data32F[3]);
-                        let p3 = new cv.Point(sceneCorners.data32F[4], sceneCorners.data32F[5]);
-                        let p4 = new cv.Point(sceneCorners.data32F[6], sceneCorners.data32F[7]);
-                        cv.line(src, p1, p2, colorBase, 4);
-                        cv.line(src, p2, p3, colorBase, 4);
-                        cv.line(src, p3, p4, colorBase, 4);
-                        cv.line(src, p4, p1, colorBase, 4);
-                        
-                        // Pseudo-3D Height extrusion
-                        let heightOffset = -150; // pixels 'up' in 2D space
-                        let p5 = new cv.Point(p1.x, p1.y + heightOffset);
-                        let p6 = new cv.Point(p2.x, p2.y + heightOffset);
-                        let p7 = new cv.Point(p3.x, p3.y + heightOffset);
-                        let p8 = new cv.Point(p4.x, p4.y + heightOffset);
-                        
-                        // Draw top face
-                        let colorTop = new cv.Scalar(0, 0, 255, 255); // Blue top
-                        cv.line(src, p5, p6, colorTop, 4);
-                        cv.line(src, p6, p7, colorTop, 4);
-                        cv.line(src, p7, p8, colorTop, 4);
-                        cv.line(src, p8, p5, colorTop, 4);
-                        
-                        // Draw vertical edges
-                        let colorEdge = new cv.Scalar(0, 255, 0, 255); // Green sides
-                        cv.line(src, p1, p5, colorEdge, 4);
-                        cv.line(src, p2, p6, colorEdge, 4);
-                        cv.line(src, p3, p7, colorEdge, 4);
-                        cv.line(src, p4, p8, colorEdge, 4);
+
+                        // Centroid calculation
+                        let cx = 0, cy = 0;
+                        for(let i=0; i<8; i+=2) {
+                            cx += sceneCorners.data32F[i];
+                            cy += sceneCorners.data32F[i+1];
+                        }
+                        cx /= 4; cy /= 4;
+
+                        // Polygon validation: check if the transformed corners form a convex quadrilateral
+                        // with a reasonable area (to prevent extremely distorted/random matches).
+                        let px0 = sceneCorners.data32F[0], py0 = sceneCorners.data32F[1];
+                        let px1 = sceneCorners.data32F[2], py1 = sceneCorners.data32F[3];
+                        let px2 = sceneCorners.data32F[4], py2 = sceneCorners.data32F[5];
+                        let px3 = sceneCorners.data32F[6], py3 = sceneCorners.data32F[7];
+
+                        let crossProduct = (x1, y1, x2, y2) => x1 * y2 - y1 * x2;
+
+                        let cross0 = crossProduct(px1 - px0, py1 - py0, px2 - px1, py2 - py1);
+                        let cross1 = crossProduct(px2 - px1, py2 - py1, px3 - px2, py3 - py2);
+                        let cross2 = crossProduct(px3 - px2, py3 - py2, px0 - px3, py0 - py3);
+                        let cross3 = crossProduct(px0 - px3, py0 - py3, px1 - px0, py1 - py0);
+
+                        let isConvex = (cross0 > 0 && cross1 > 0 && cross2 > 0 && cross3 > 0) || 
+                                       (cross0 < 0 && cross1 < 0 && cross2 < 0 && cross3 < 0);
+
+                        let area = 0.5 * Math.abs(crossProduct(px2 - px0, py2 - py0, px3 - px1, py3 - py1));
+                        let minArea = (video.videoWidth * video.videoHeight) * 0.005; // At least 0.5% of the screen
+
+                        // Check if centroid is somewhat within bounds AND polygon is safe
+                        if (isConvex && area > minArea && cx >= -video.videoWidth && cx <= video.videoWidth * 2 && cy >= -video.videoHeight && cy <= video.videoHeight * 2) {
+                            let vFov = camera.fov * Math.PI / 180;
+                            let planeHeight = 2 * Math.tan(vFov / 2) * 2; // Math.abs(z) is 2
+                            let planeWidth = planeHeight * camera.aspect;
+
+                            cube.visible = true;
+                            cube.position.x = ((cx / video.videoWidth) * 2 - 1) * (planeWidth / 2);
+                            cube.position.y = -((cy / video.videoHeight) * 2 - 1) * (planeHeight / 2);
+                            cube.position.z = -2;
+                            
+                            cube.rotation.set(0, 0, 0); // Stop spinning
+                        }
                     }
                 }
             }
-            
-            // Draw debug text on video feed to prove tracking algorithm is running
-            cv.putText(src, "Matches found: " + matchesFound + " (Need >10)", new cv.Point(10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, new cv.Scalar(255,255,0,255), 2);
-            
-            // Render the final frame
+
+            // Render to clear/update
+            renderer.clear();
+            renderer.render(scene, camera);
+
             cv.imshow('outputCanvas', src);
-            
+
         } catch (err) {
-            console.error("Video processing error:", err);
-            // Don't crash the loop, just keep attempting next frame
+            console.error(err);
         } finally {
-            // Guarantee cleanup of OpenCV memory to prevent browser tab crash!
             matsToDelete.forEach(m => m.delete());
             requestAnimationFrame(processVideo);
         }
