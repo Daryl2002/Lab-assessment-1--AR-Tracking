@@ -5,7 +5,7 @@ let video, cap, src, gray;
 let streaming = false;
 
 // Three.js variables
-let scene, camera, renderer, cube;
+let scene, camera, renderer;
 let currentObject; // Changed to match any 3D object
 let markerCount = 0; // Track marker uploads for Requirement 3
 const arOverlay = document.getElementById('ar-overlay');
@@ -97,21 +97,26 @@ window.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
 
             reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0, img.width, img.height);
-                    canvas.style.display = 'block';
-                    // Increment marker count and update 3D object for Requirement 3
-                    markerCount++;
-                    if (streaming) {
-                        initThreeJS();
-                    }
-                    
-                    statusText.innerText = "Status: Image " + markerCount + " Loaded. Click Generate.";
-                };
-                img.src = event.target.result;
+                    const img = new Image();
+                    img.onload = () => {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0, img.width, img.height);
+                        canvas.style.display = 'block';
+                        
+                        // Set the reference image for feature generation and tracking
+                        refImage = img;
+                        console.log("Image loaded as reference:", refImage.width, "x", refImage.height);
+                        
+                        // Increment marker count and update 3D object for Requirement 3
+                        markerCount++;
+                        if (streaming) {
+                            initThreeJS();
+                        }
+                        
+                        statusText.innerText = "Status: Image " + markerCount + " Loaded. Click Generate.";
+                    };
+                    img.src = event.target.result;
             };
             reader.readAsDataURL(file);
         }
@@ -119,8 +124,21 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // 2. Generate Features
     generateBtn.addEventListener('click', () => {
-        if (!refImage || !cv) return;
-        statusText.innerText = "Status: Processing Features...";
+        if (!refImage) {
+            statusText.innerText = "Status: Please upload an image first.";
+            return;
+        }
+        if (typeof cv === 'undefined' || !cv.Mat) {
+            statusText.innerText = "Status: OpenCV Engine not ready yet.";
+            return;
+        }
+        if (!orb) {
+            statusText.innerText = "Status: Initializing ORB Engine...";
+            orb = new cv.ORB(500);
+            bf = new cv.BFMatcher(cv.NORM_HAMMING, true);
+        }
+
+        statusText.innerText = "Status: Processing Features (ORB)...";
 
         try {
             let imgMat = cv.imread(canvas);
@@ -129,7 +147,11 @@ window.addEventListener('DOMContentLoaded', () => {
 
             refKeypoints = new cv.KeyPointVector();
             refDescriptors = new cv.Mat();
-            orb.detectAndCompute(imgGray, new cv.Mat(), refKeypoints, refDescriptors);
+            let mask = new cv.Mat();
+            orb.detectAndCompute(imgGray, mask, refKeypoints, refDescriptors);
+            mask.delete();
+
+            console.log("Features detected:", refKeypoints.size());
 
             // Draw features
             let outImg = new cv.Mat();
@@ -143,13 +165,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
             imgMat.delete(); imgGray.delete(); outImg.delete();
 
-            statusText.innerText = "Status: Features Ready! You can start AR.";
+            statusText.innerText = "Status: " + refKeypoints.size() + " Features Ready! Start AR.";
             saveBtn.disabled = false;
             startARBtn.disabled = false;
 
         } catch (err) {
-            console.error(err);
-            statusText.innerText = "Status: Feature Error.";
+            console.error("Feature Generation Error:", err);
+            statusText.innerText = "Status: Error generating features.";
         }
     });
 
