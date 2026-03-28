@@ -6,6 +6,8 @@ let streaming = false;
 
 // Three.js variables
 let scene, camera, renderer, cube;
+let currentObject; // Changed to match any 3D object
+let markerCount = 0; // Track marker uploads for Requirement 3
 const arOverlay = document.getElementById('ar-overlay');
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -23,25 +25,50 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Initialize Three.js
     function initThreeJS() {
-        scene = new THREE.Scene();
-        const container = arOverlay.parentElement;
-        camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-        renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        arOverlay.innerHTML = '';
-        arOverlay.appendChild(renderer.domElement);
+        if (scene) {
+            // Clean up old scene if it exists (for switching markers)
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
+        } else {
+            scene = new THREE.Scene();
+        }
 
-        // Create a stylish cube - smaller scale
-        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const container = arOverlay.parentElement;
+        if (!renderer) {
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            arOverlay.innerHTML = '';
+            arOverlay.appendChild(renderer.domElement);
+        }
+
+        // Cycle through 3 different objects to fulfill Requirement 3
+        let geometry;
+        let color;
+        const index = markerCount % 3;
+
+        if (index === 0) {
+            geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            color = 0x4f46e5; // Indigo
+        } else if (index === 1) {
+            geometry = new THREE.SphereGeometry(0.3, 32, 32);
+            color = 0x10b981; // Emerald
+        } else {
+            geometry = new THREE.CylinderGeometry(0.25, 0.25, 0.5, 32);
+            color = 0xf59e0b; // Amber
+        }
+
         const material = new THREE.MeshPhongMaterial({
-            color: 0x4f46e5,
+            color: color,
             transparent: true,
             opacity: 0.8,
             specular: 0x111111,
             shininess: 100
         });
-        cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+
+        currentObject = new THREE.Mesh(geometry, material);
+        scene.add(currentObject);
 
         // Add lights
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -50,7 +77,7 @@ window.addEventListener('DOMContentLoaded', () => {
         directionalLight.position.set(0, 10, 10);
         scene.add(directionalLight);
 
-        cube.visible = false;
+        currentObject.visible = false;
     }
 
     // Wait for OpenCV.js
@@ -76,9 +103,13 @@ window.addEventListener('DOMContentLoaded', () => {
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0, img.width, img.height);
                     canvas.style.display = 'block';
-                    // Don't hide ar-view, just keep it ready
-                    refImage = img;
-                    statusText.innerText = "Status: Image Loaded. Click Generate Features.";
+                    // Increment marker count and update 3D object for Requirement 3
+                    markerCount++;
+                    if (streaming) {
+                        initThreeJS();
+                    }
+                    
+                    statusText.innerText = "Status: Image " + markerCount + " Loaded. Click Generate.";
                 };
                 img.src = event.target.result;
             };
@@ -159,7 +190,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!streaming) return;
 
         let matsToDelete = [];
-        cube.visible = false; // Reset each frame to avoid ghosting
+        currentObject.visible = false; // Reset each frame to avoid ghosting
 
         try {
             cap.read(src);
@@ -225,8 +256,7 @@ window.addEventListener('DOMContentLoaded', () => {
                         }
                         cx /= 4; cy /= 4;
 
-                        // Polygon validation: check if the transformed corners form a convex quadrilateral
-                        // with a reasonable area (to prevent extremely distorted/random matches).
+                        // Polygon validation
                         let px0 = sceneCorners.data32F[0], py0 = sceneCorners.data32F[1];
                         let px1 = sceneCorners.data32F[2], py1 = sceneCorners.data32F[3];
                         let px2 = sceneCorners.data32F[4], py2 = sceneCorners.data32F[5];
@@ -243,29 +273,25 @@ window.addEventListener('DOMContentLoaded', () => {
                                        (cross0 < 0 && cross1 < 0 && cross2 < 0 && cross3 < 0);
 
                         let area = 0.5 * Math.abs(crossProduct(px2 - px0, py2 - py0, px3 - px1, py3 - py1));
-                        let minArea = (video.videoWidth * video.videoHeight) * 0.005; // At least 0.5% of the screen
+                        let minArea = (video.videoWidth * video.videoHeight) * 0.005;
 
-                        // Check if centroid is somewhat within bounds AND polygon is safe
                         if (isConvex && area > minArea && cx >= -video.videoWidth && cx <= video.videoWidth * 2 && cy >= -video.videoHeight && cy <= video.videoHeight * 2) {
                             let vFov = camera.fov * Math.PI / 180;
-                            let planeHeight = 2 * Math.tan(vFov / 2) * 2; // Math.abs(z) is 2
+                            let planeHeight = 2 * Math.tan(vFov / 2) * 2;
                             let planeWidth = planeHeight * camera.aspect;
 
-                            cube.visible = true;
-                            cube.position.x = ((cx / video.videoWidth) * 2 - 1) * (planeWidth / 2);
-                            cube.position.y = -((cy / video.videoHeight) * 2 - 1) * (planeHeight / 2);
-                            cube.position.z = -2;
-                            
-                            cube.rotation.set(0, 0, 0); // Stop spinning
+                            currentObject.visible = true;
+                            currentObject.position.x = ((cx / video.videoWidth) * 2 - 1) * (planeWidth / 2);
+                            currentObject.position.y = -((cy / video.videoHeight) * 2 - 1) * (planeHeight / 2);
+                            currentObject.position.z = -2;
+                            currentObject.rotation.set(0, 0, 0);
                         }
                     }
                 }
             }
 
-            // Render to clear/update
             renderer.clear();
             renderer.render(scene, camera);
-
             cv.imshow('outputCanvas', src);
 
         } catch (err) {
